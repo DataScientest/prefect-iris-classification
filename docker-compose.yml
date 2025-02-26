@@ -26,6 +26,7 @@ services:
     command: >
       mlflow server 
       --host 0.0.0.0
+      --port 5000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
@@ -90,7 +91,7 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    command: prefect worker start -p ml-pool
+    command: # start the worker on ml-poll
 
   test:
     build:
