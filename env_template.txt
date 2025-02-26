@@ -1,0 +1,6 @@
+PREFECT_API_URL=http://127.0.0.1:4200/api
+GH_TOKEN=your-gh-pat
+# docker setup
+GITHUB_REPOSITORY=your-username/prefect-iris-classification
+GITHUB_BRANCH=main  # or your default branch
+POSTGRES_PASSWORD=prefect
