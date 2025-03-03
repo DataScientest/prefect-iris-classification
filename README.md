@@ -87,11 +87,6 @@ Replace:
    - Set up proper dependencies and environment variables
    - Configure command sequence for initialization
 
-5. **Docker Compose Configuration** (`docker-compose.vm.yml`):
-   - Complete the `prefect-init` and `prefect-worker` service configuration
-   - Set up proper dependencies and environment variables
-   - Configure command sequence for initialization (for `prefect-init`)
-
 ## Running the Services
 
 Start all services using Docker Compose:
