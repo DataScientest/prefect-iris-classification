@@ -12,7 +12,7 @@ from prefect.client.orchestration import get_client
 
 WORK_POOL_NAME = "ml-pool"
 
-async def create_deployment():
+def create_deployment():
     """Create deployment using GitHub source."""
     # TODO: Implement deployment creation
     # 1. Load GitHub credentials from the block named "github-credentials"
@@ -31,4 +31,4 @@ async def create_deployment():
     pass
 
 if __name__ == "__main__":
-    asyncio.run(create_deployment())
+    create_deployment()
