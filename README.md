@@ -86,6 +86,9 @@ Replace:
    - Complete the prefect-init service configuration
    - Set up proper dependencies and environment variables
    - Configure command sequence for initialization
+  
+5. **Update integration test** (`tests/test_integration.py`)
+   - Update your images names in the integration test file
 
 ## Running the Services
 
