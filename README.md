@@ -110,7 +110,7 @@ This will start:
 Run the test suite to validate your implementation:
 
 ```bash
-docker compose up test
+docker-compose --profile test run --rm test
 ```
 
 The tests will check:
@@ -138,6 +138,9 @@ test_1            | =============================== warnings summary ===========
 3. Find the "iris-classification-flow/iris-model" deployment
 4. Click "Run" to start a flow run
 5. Monitor the run progress in the UI
+6. Add a picture below showing the run success from prefect GUI
+
+![add picture](/path/to/file)
 
 ### Option 2: Using the Command Line
 
@@ -147,14 +150,20 @@ Run the deployment using the Prefect CLI:
 docker compose exec prefect-worker prefect deployment run 'iris-classification-flow/iris-model'
 ```
 
+Add below screen of the terminal :
+
+```sh
+# Add a output of your terminal (a short piece showing the successfull run)
+```
+
 ## Monitoring and Tracking
 
-- **Prefect UI** (http://127.0.0.1:4200):
+- **Prefect UI** (`http://127.0.0.1:4200`or `http://VM-IP:4200`):
   - View flow runs and their status
   - Monitor task execution
   - Check logs and error messages
 
-- **MLflow UI** (http://127.0.0.1:5001):
+- **MLflow UI** (`http://127.0.0.1:5001`):
   - View experiment tracking
   - Compare model metrics
   - Access saved model artifacts

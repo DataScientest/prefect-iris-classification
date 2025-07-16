@@ -20,7 +20,6 @@ def test_end_to_end_flow():
 
 @pytest.mark.integration
 def test_docker_deployment():
-    # Use docker CLI instead of Python client
     import subprocess
     
     # Check if the required images exist

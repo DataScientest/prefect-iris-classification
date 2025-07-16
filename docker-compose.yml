@@ -1,8 +1,10 @@
-version: '3.8'
+# MLOps Challenge: Prefect and MLflow Integration
+# Docker Compose file with pinned image versions for reproducibility
 
 services:
   prefect-db:
-    image: postgres:13
+    image: postgres:13.13-alpine
+    container_name: prefect-db
     environment:
       POSTGRES_USER: prefect
       POSTGRES_PASSWORD: prefect
@@ -12,33 +14,43 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U prefect"]
       interval: 5s
+      timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 10s
+    restart: unless-stopped
 
   mlflow:
     build:
       context: .
-      dockerfile: mlflow.Dockerfile
+      dockerfile: docker_files/mlflow.Dockerfile
+    container_name: mlflow-server
     ports:
       - "5001:5000"
     volumes:
       - mlflow_data:/mlruns
+    environment:
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlruns
+      - MLFLOW_TRACKING_URI=http://0.0.0.0:5000
     command: >
-      mlflow server 
+      mlflow server
       --host 0.0.0.0
       --port 5000
+      --default-artifact-root /mlruns
+      --serve-artifacts
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
+      interval: 10s
+      timeout: 5s
       retries: 5
       start_period: 30s
+    restart: unless-stopped
 
   prefect-server:
     build:
       context: .
-      dockerfile: prefect.Dockerfile
-    restart: always
+      dockerfile: docker_files/prefect.Dockerfile
+    container_name: prefect-server
+    restart: unless-stopped
     ports:
       - "4200:4200"
     depends_on:
@@ -48,14 +60,15 @@ services:
       - PREFECT_API_DATABASE_CONNECTION_URL=postgresql+asyncpg://prefect:prefect@prefect-db:5432/prefect
       - PREFECT_API_URL=http://0.0.0.0:4200/api
       - PREFECT_SERVER_API_HOST=0.0.0.0
+      - PREFECT_LOGGING_LEVEL=INFO
     volumes:
       - .:/app
     working_dir: /app
     command: prefect server start
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4200/api/health"]
-      interval: 30s
-      timeout: 10s
+      interval: 10s
+      timeout: 5s
       retries: 5
       start_period: 30s
 
@@ -75,11 +88,14 @@ services:
   #    - Create work pool 'ml-pool'
   #    - Create deployment using create_deployment.py
   prefect-init:
+    None
 
   prefect-worker:
     build:
       context: .
-      dockerfile: prefect.Dockerfile
+      dockerfile: docker_files/prefect.Dockerfile
+    container_name: prefect-worker
+    restart: unless-stopped
     depends_on:
       prefect-server:
         condition: service_healthy
@@ -88,15 +104,17 @@ services:
     environment:
       - PREFECT_API_URL=http://prefect-server:4200/api
       - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - PREFECT_LOGGING_LEVEL=INFO
     volumes:
       - .:/app
     working_dir: /app
-    command: # start the worker on ml-poll
+    command: prefect worker start -p ml-pool
 
   test:
     build:
       context: .
-      dockerfile: Dockerfile.test
+      dockerfile: docker_files/Dockerfile.test
+    container_name: prefect-test
     depends_on:
       prefect-server:
         condition: service_healthy
@@ -114,7 +132,17 @@ services:
     volumes:
       - .:/app
       - /var/run/docker.sock:/var/run/docker.sock
+    command: ["-v", "--color=yes", "tests/"]
+    profiles:
+      - test
 
 volumes:
   prefect_postgres_data:
+    driver: local
   mlflow_data:
+    driver: local
+
+networks:
+  default:
+    name: prefect-mlflow-network
+    driver: bridge

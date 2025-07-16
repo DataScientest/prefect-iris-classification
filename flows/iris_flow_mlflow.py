@@ -90,7 +90,7 @@ def iris_classification_flow() -> float:
     mlflow.set_experiment(experiment_name)
     model_name = Variable.get("model_name")
     model_version = Variable.get("model_version")
-    with mlflow.start_run(run_name="iris_classification_run"):
+    with mlflow.start_run(run_name="iris_classification_run", nested=True):
         X, y = load_data()
         X_train, X_test, y_train, y_test = split_data(X, y)
         model = train_model(X_train, y_train)
