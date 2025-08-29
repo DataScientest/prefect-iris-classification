@@ -13,30 +13,12 @@ In this challenge, you will implement a machine learning pipeline using Prefect 
 Your task is to complete the implementation in the following files:
 - `flows/iris_flow_mlflow.py`: Implement the main ML pipeline (create this file if it doesn't exist)
 - `init_blocks/init.py`: Set up Prefect blocks and variables
-- `deployments/create_deployment.py`: Create a deployment for the flow
+- `deployments/create_deployment.py`: Create a deployment for the flow that fetches the latest version of the flow from GitHub or use a local flow (see chapter 5)
 - `docker-compose.yml`: Complete the prefect-init service configuration
 
 The test suite in `tests/` will help validate your implementation.
 
 ## Important Notes
-
-### Repository Name
-This challenge requires your repository to be named exactly "prefect-iris-classification". This is crucial for the tests to pass, as they rely on specific paths and configurations. Make sure to:
-1. Name your repository "prefect-iris-classification" when you create it
-2. Use this exact name in your GITHUB_REPOSITORY environment variable
-3. Keep all file paths and names as they are in the original repository
-
-### File Structure
-The flow file must be created at exactly this location:
-```sh
-flows/
-└── iris_flow_mlflow.py  # Create this file with the implementation
-```
-
-This specific path is required because:
-- The deployment configuration expects this exact path
-- The tests look for this specific file location
-- The Docker setup mounts this path
 
 ## Prerequisites
 
@@ -65,6 +47,24 @@ Replace:
 - `your_github_token` with your actual GitHub Personal Access Token
 - `your-username` with your GitHub username
 
+### Repository Name
+This challenge requires your repository to be named exactly `prefect-iris-classification`. This is crucial for the tests to pass, as they rely on specific paths and configurations. Make sure to:
+1. Name your repository `prefect-iris-classification` when you create it
+2. Use this exact name in your `GITHUB_REPOSITORY` environment variable
+3. Keep all file paths and names as they are in the original repository
+
+### File Structure
+The flow file must be created at exactly this location:
+```sh
+flows/
+└── iris_flow_mlflow.py  # Create this file with the implementation
+```
+
+This specific path is required because:
+- The deployment configuration expects this exact path
+- The tests look for this specific file location
+- The Docker setup mounts this path
+
 ## Implementation Tasks
 
 1. **Main Flow Implementation** (`flows/iris_flow_mlflow.py`):
@@ -86,13 +86,13 @@ Replace:
    - Complete the prefect-init service configuration
    - Set up proper dependencies and environment variables
    - Configure command sequence for initialization
-  
+
 5. **Update integration test** (`tests/test_integration.py`)
    - Update your images names in the integration test file
 
 ## Running the Services
 
-Start all services using Docker Compose:
+Start all services using Docker Compose command below:
 
 ```bash
 docker compose up -d
@@ -104,6 +104,7 @@ This will start:
 * PostgreSQL database
 * Prefect worker
 * Required initialization services
+
 
 ## Validating Your Implementation
 
@@ -120,12 +121,13 @@ The tests will check:
 - Docker environment setup
 
 After successful completion, you are supposed to have the following output:
+
 ```sh
 test_1            | tests/test_deployment.py::test_deployment_configuration PASSED           [ 25%]
 test_1            | tests/test_deployment.py::test_deployment_run PASSED                     [ 50%]
 test_1            | tests/test_integration.py::test_end_to_end_flow PASSED                   [ 75%]
 test_1            | tests/test_integration.py::test_docker_deployment PASSED                 [100%]
-test_1            | 
+test_1            |
 test_1            | =============================== warnings summary ===============================
 ```
 
@@ -208,3 +210,48 @@ Your implementation will be evaluated based on:
 ├── prefect.Dockerfile  # Prefect service image
 └── mlflow.Dockerfile   # MLflow service image
 ```
+
+Architecture Diagram :
+
+```mermaid
+graph TB
+    subgraph "User Interface"
+        UI[Prefect UI :4200]
+        MLFlow_UI[MLFlow UI :5001]
+    end
+
+    subgraph "Core Services"
+        Server[Prefect Server]
+        Worker[Prefect Worker]
+        MLFlow[MLFlow Server]
+    end
+
+    subgraph "Data Storage"
+        DB[(PostgreSQL)]
+        Storage[(Artifact Storage)]
+    end
+
+    %% User connections
+    UI --> Server
+    MLFlow_UI --> MLFlow
+
+    %% Core service connections
+    Server --> DB
+    Worker --> Server
+    MLFlow --> Storage
+    Worker --> MLFlow
+
+    %% Dependency indicators
+    Server -.->|depends on| DB
+    Worker -.->|depends on| Server
+
+    classDef database fill:#e1f5fe
+    classDef service fill:#f3e5f5
+    classDef external fill:#e8f5e8
+
+    class DB,Storage database
+    class Server,Worker,MLFlow service
+    class UI,MLFlow_UI external
+```
+
+Good luck!
