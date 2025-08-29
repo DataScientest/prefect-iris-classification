@@ -2,147 +2,146 @@
 # Docker Compose file with pinned image versions for reproducibility
 
 services:
-  prefect-db:
-    image: postgres:13.13-alpine
-    container_name: prefect-db
-    environment:
-      POSTGRES_USER: prefect
-      POSTGRES_PASSWORD: prefect
-      POSTGRES_DB: prefect
-    volumes:
-      - prefect_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U prefect"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: unless-stopped
+    prefect-db:
+        image: postgres:13.13-alpine
+        container_name: prefect-db
+        environment:
+            POSTGRES_USER: prefect
+            POSTGRES_PASSWORD: prefect
+            POSTGRES_DB: prefect
+        volumes:
+            - prefect_postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U prefect"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+        restart: unless-stopped
 
-  mlflow:
-    build:
-      context: .
-      dockerfile: docker_files/mlflow.Dockerfile
-    container_name: mlflow-server
-    ports:
-      - "5001:5000"
-    volumes:
-      - mlflow_data:/mlruns
-    environment:
-      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlruns
-      - MLFLOW_TRACKING_URI=http://0.0.0.0:5000
-    command: >
-      mlflow server
-      --host 0.0.0.0
-      --port 5000
-      --default-artifact-root /mlruns
-      --serve-artifacts
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    restart: unless-stopped
+    mlflow:
+        build:
+            context: .
+            dockerfile: docker_files/mlflow.Dockerfile
+        container_name: mlflow-server
+        ports:
+            - "5001:5000"
+        volumes:
+            - mlflow_data:/mlruns
+        environment:
+            - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlruns
+            - MLFLOW_TRACKING_URI=http://0.0.0.0:5000
+        command: >
+            mlflow server
+            --host 0.0.0.0
+            --port 5000
+            --default-artifact-root /mlruns
+            --serve-artifacts
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 30s
+        restart: unless-stopped
 
-  prefect-server:
-    build:
-      context: .
-      dockerfile: docker_files/prefect.Dockerfile
-    container_name: prefect-server
-    restart: unless-stopped
-    ports:
-      - "4200:4200"
-    depends_on:
-      prefect-db:
-        condition: service_healthy
-    environment:
-      - PREFECT_API_DATABASE_CONNECTION_URL=postgresql+asyncpg://prefect:prefect@prefect-db:5432/prefect
-      - PREFECT_API_URL=http://0.0.0.0:4200/api
-      - PREFECT_SERVER_API_HOST=0.0.0.0
-      - PREFECT_LOGGING_LEVEL=INFO
-    volumes:
-      - .:/app
-    working_dir: /app
-    command: prefect server start
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4200/api/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+    prefect-server:
+        build:
+            context: .
+            dockerfile: docker_files/prefect.Dockerfile
+        container_name: prefect-server
+        restart: unless-stopped
+        ports:
+            - "4200:4200"
+        depends_on:
+            prefect-db:
+                condition: service_healthy
+        environment:
+            - PREFECT_API_DATABASE_CONNECTION_URL=postgresql+asyncpg://prefect:prefect@prefect-db:5432/prefect
+            - PREFECT_API_URL=http://0.0.0.0:4200/api
+            - PREFECT_SERVER_API_HOST=0.0.0.0
+            - PREFECT_LOGGING_LEVEL=INFO
+        volumes:
+            - .:/app
+        working_dir: /app
+        command: prefect server start
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:4200/api/health"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 30s
 
-  # TODO: Implement the prefect-init service
-  # This service should:
-  # 1. Use the prefect.Dockerfile
-  # 2. Depend on prefect-server being healthy
-  # 3. Set the following environment variables:
-  #    - PREFECT_API_URL
-  #    - GITHUB_TOKEN
-  #    - GITHUB_REPOSITORY
-  #    - GITHUB_BRANCH
-  #    - MLFLOW_TRACKING_URI
-  # 4. Mount the current directory to /app
-  # 5. Run the following commands in sequence:
-  #    - Initialize blocks using init.py
-  #    - Create work pool 'ml-pool'
-  #    - Create deployment using create_deployment.py
-  prefect-init:
-    None
+    # TODO: Implement the prefect-init service
+    # This service should:
+    # 1. Use the prefect.Dockerfile
+    # 2. Depend on prefect-server being healthy
+    # 3. Set the following environment variables:
+    #    - PREFECT_API_URL
+    #    - GITHUB_TOKEN (if using remote github repository to fetch the flow)
+    #    - GITHUB_REPOSITORY (if using remote github repository to fetch the flow)
+    #    - GITHUB_BRANCH (if using remote github repository to fetch the flow)
+    #    - MLFLOW_TRACKING_URI
+    # 4. Mount the current directory to /app
+    # 5. Run the following commands in sequence:
+    #    - Initialize blocks using init.py
+    #    - Create work pool 'ml-pool'
+    #    - Create deployment using create_deployment.py
+    prefect-init: None
 
-  prefect-worker:
-    build:
-      context: .
-      dockerfile: docker_files/prefect.Dockerfile
-    container_name: prefect-worker
-    restart: unless-stopped
-    depends_on:
-      prefect-server:
-        condition: service_healthy
-      prefect-init:
-        condition: service_completed_successfully
-    environment:
-      - PREFECT_API_URL=http://prefect-server:4200/api
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
-      - PREFECT_LOGGING_LEVEL=INFO
-    volumes:
-      - .:/app
-    working_dir: /app
-    command: prefect worker start -p ml-pool
+    prefect-worker:
+        build:
+            context: .
+            dockerfile: docker_files/prefect.Dockerfile
+        container_name: prefect-worker
+        restart: unless-stopped
+        depends_on:
+            prefect-server:
+                condition: service_healthy
+            prefect-init:
+                condition: service_completed_successfully
+        environment:
+            - PREFECT_API_URL=http://prefect-server:4200/api
+            - MLFLOW_TRACKING_URI=http://mlflow:5000
+            - PREFECT_LOGGING_LEVEL=INFO
+        volumes:
+            - .:/app
+        working_dir: /app
+        command: prefect worker start -p ml-pool
 
-  test:
-    build:
-      context: .
-      dockerfile: docker_files/Dockerfile.test
-    container_name: prefect-test
-    depends_on:
-      prefect-server:
-        condition: service_healthy
-      mlflow:
-        condition: service_healthy
-      prefect-db:
-        condition: service_healthy
-    environment:
-      - PREFECT_API_URL=http://prefect-server:4200/api
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
-      - GITHUB_TOKEN=${GH_TOKEN}
-      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
-      - GITHUB_BRANCH=${GITHUB_BRANCH}
-      - DOCKER_HOST=unix:///var/run/docker.sock
-    volumes:
-      - .:/app
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: ["-v", "--color=yes", "tests/"]
-    profiles:
-      - test
+    test:
+        build:
+            context: .
+            dockerfile: docker_files/Dockerfile.test
+        container_name: prefect-test
+        depends_on:
+            prefect-server:
+                condition: service_healthy
+            mlflow:
+                condition: service_healthy
+            prefect-db:
+                condition: service_healthy
+        environment:
+            - PREFECT_API_URL=http://prefect-server:4200/api
+            - MLFLOW_TRACKING_URI=http://mlflow:5000
+            - GITHUB_TOKEN=${GH_TOKEN}
+            - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+            - GITHUB_BRANCH=${GITHUB_BRANCH}
+            - DOCKER_HOST=unix:///var/run/docker.sock
+        volumes:
+            - .:/app
+            - /var/run/docker.sock:/var/run/docker.sock
+        command: ["-v", "--color=yes", "tests/"]
+        profiles:
+            - test
 
 volumes:
-  prefect_postgres_data:
-    driver: local
-  mlflow_data:
-    driver: local
+    prefect_postgres_data:
+        driver: local
+    mlflow_data:
+        driver: local
 
 networks:
-  default:
-    name: prefect-mlflow-network
-    driver: bridge
+    default:
+        name: prefect-mlflow-network
+        driver: bridge
